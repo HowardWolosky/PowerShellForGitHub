@@ -14,6 +14,9 @@
 <br />
 [![Help Wanted Issues](https://img.shields.io/github/issues/microsoft/PowerShellForGitHub/help%20wanted)](https://github.com/microsoft/PowerShellForGitHub/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![GitHub last commit](https://img.shields.io/github/last-commit/microsoft/PowerShellForGitHub)](https://github.com/HowardWolosky/PowerShellForGitHub/commits/master)
+<br />
+[![[Average time to resolve an issue]](http://www.isitmaintained.com/badge/resolution/microsoft/PowerShellForGitHub.svg)](http://www.isitmaintained.com/project/microsoft/PowerShellForGitHub "Average time to resolve an issue")
+[![[Percentage of issues still open]](http://www.isitmaintained.com/badge/open/microsoft/PowerShellForGitHub.svg)](http://www.isitmaintained.com/project/microsoft/PowerShellForGitHub "Percentage of issues still open")
 
 #### Table of Contents
 
