@@ -3,6 +3,7 @@
 
 @{
     GitHubPullRequestTypeName = 'GitHub.PullRequest'
+    GitHubCommitTypeName = 'GitHub.Commit'
  }.GetEnumerator() | ForEach-Object {
      Set-Variable -Scope Script -Option ReadOnly -Name $_.Key -Value $_.Value
  }
@@ -82,7 +83,7 @@ filter Get-GitHubPullRequest
         GitHub.Repository
 
     .OUTPUTS
-        GitHub.PulLRequest
+        GitHub.PullRequest
 
     .EXAMPLE
         $pullRequests = Get-GitHubPullRequest -Uri 'https://github.com/PowerShell/PowerShellForGitHub'
@@ -191,6 +192,210 @@ filter Get-GitHubPullRequest
     }
 
     return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubPullRequestAdditionalProperties)
+}
+
+filter Get-GitHubPullRequestCommit
+{
+<#
+    .SYNOPSIS
+        Retrieve the list of commits for the specified pull request.
+
+    .DESCRIPTION
+        Retrieve the list of commits for the specified pull request.
+
+        A maximum of 250 commits for a pull request will be returned.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request ID to return the commits for.
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
+    .OUTPUTS
+        GitHub.Commit
+
+    .EXAMPLE
+        Get-GitHubPullRequestCommit -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+#>
+    [CmdletBinding(
+        SupportsShouldProcess,
+        DefaultParameterSetName='Elements')]
+    [OutputType({$script:GitHubCommitTypeName})]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName,
+            ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
+        [string] $Uri,
+
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
+        [int64] $PullRequest,
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+    }
+
+    $params = @{
+        'UriFragment' =  "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest/commits"
+        'Description' =  "Getting commits for pull request $PullRequest"
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubCommitAdditionalProperties)
+}
+
+function Get-GitHubPullRequestFile
+{
+<#
+    .SYNOPSIS
+        Retrieve the list of files in the specified pull request.
+
+    .DESCRIPTION
+        Retrieve the list of files in the specified pull request.
+        A maximum of 3000 files will be returned.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request ID to return the files for.
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .OUTPUTS
+        [PSCustomObject[]] List of commits for the specified pull request.
+
+    .EXAMPLE
+        Get-GitHubPullRequestFile -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+#>
+    [CmdletBinding(
+        SupportsShouldProcess,
+        DefaultParameterSetName='Elements')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ParameterSetName='Uri')]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest,
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+    }
+
+    $params = @{
+        'UriFragment' =  "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest/files"
+        'Description' =  "Getting commits for pull request $PullRequest"
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+    return Invoke-GHRestMethodMultipleResult @params
 }
 
 filter New-GitHubPullRequest
@@ -345,8 +550,9 @@ filter New-GitHubPullRequest
             Mandatory,
             ValueFromPipelineByPropertyName,
             ParameterSetName='Uri_Issue')]
+
         [Alias('IssueNumber')]
-        [int] $Issue,
+        [int64] $Issue,
 
         [Parameter(Mandatory)]
         [string] $Head,
@@ -393,7 +599,7 @@ filter New-GitHubPullRequest
 
     $uriFragment = "/repos/$OwnerName/$RepositoryName/pulls"
 
-    $postBody = @{
+    $hashBody = @{
         'head' = $Head
         'base' = $Base
     }
@@ -401,28 +607,28 @@ filter New-GitHubPullRequest
     if ($PSBoundParameters.ContainsKey('Title'))
     {
         $description = "Creating pull request $Title in $RepositoryName"
-        $postBody['title'] = $Title
+        $hashBody['title'] = $Title
 
         # Body may be whitespace, although this might not be useful
         if ($Body)
         {
-            $postBody['body'] = $Body
+            $hashBody['body'] = $Body
         }
     }
     else
     {
         $description = "Creating pull request for issue $Issue in $RepositoryName"
-        $postBody['issue'] = $Issue
+        $hashBody['issue'] = $Issue
     }
 
     if ($MaintainerCanModify)
     {
-        $postBody['maintainer_can_modify'] = $true
+        $hashBody['maintainer_can_modify'] = $true
     }
 
     if ($Draft)
     {
-        $postBody['draft'] = $true
+        $hashBody['draft'] = $true
         $acceptHeader = 'application/vnd.github.shadow-cat-preview+json'
     }
 
@@ -430,7 +636,7 @@ filter New-GitHubPullRequest
         'UriFragment' = $uriFragment
         'Method' = 'Post'
         'Description' = $description
-        'Body' = ConvertTo-Json -InputObject $postBody -Compress
+        'Body' = ConvertTo-Json -InputObject $hashBody -Compress
         'AccessToken' = $AccessToken
         'TelemetryEventName' = $MyInvocation.MyCommand.Name
         'TelemetryProperties' = $telemetryProperties
@@ -443,6 +649,257 @@ filter New-GitHubPullRequest
     }
 
     return (Invoke-GHRestMethod @restParams | Add-GitHubPullRequestAdditionalProperties)
+}
+
+function Test-GitHubPullRequestMerged
+{
+    <#
+    .SYNOPSIS
+        Checks to see if a pull request on GitHub has been merged.
+
+    .DESCRIPTION
+        Checks to see if a pull request on GitHub has been merged.
+
+        Will return $false if the request has not merged, as well as if the pull request is invalid
+        or inaccessible.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request to be merged.
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .OUTPUTS
+        [bool] $true if the pull request exists, is accessible and has been merged.  $false otherwise.
+
+    .EXAMPLE
+        Test-GitHubPullRequestMerged -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+
+        Returns back $true because that pull request was merged.
+
+    .EXAMPLE
+        Test-GitHubPullRequestMerged -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest [int64]::MaxValue
+
+        Returns back $false because it is unlikely this repo will ever have _that_ many
+        pull requests and/or issues.  If it does, I look forward to the day that this example can
+        be updated.
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(
+        SupportsShouldProcess,
+        DefaultParameterSetName='Elements')]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ParameterSetName='Uri')]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest,
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+    }
+
+    $params = @{
+        'UriFragment' = "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest/merge"
+        'Method' = 'Get'
+        'Description' = "Checking if pull request $PullRequest has been merged"
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'ExtendedResult'= $true
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+    try
+    {
+        $response = Invoke-GHRestMethod @params
+        return $response.StatusCode -eq 204
+    }
+    catch
+    {
+        return $false
+    }
+}
+
+function Merge-GitHubPullRequest
+{
+    <#
+    .SYNOPSIS
+        Merge a pull request on GitHub.  This is the equivalent of hitting the "Merge" button in
+        a pull request.
+
+    .DESCRIPTION
+        Merge a pull request on GitHub.  This is the equivalent of hitting the "Merge" button in
+        a pull request.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request to be merged.
+
+    .PARAMETER Title
+        Title for the automatic commit message.
+
+    .PARAMETER Message
+        Extra detail to append to automatic commit message.
+
+    .PARAMETER Sha
+        SHA that pull request head must match to allow merge.
+
+    .PARAMETER MergeMethod
+        Merge method to use.
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .NOTES
+        This endpoind triggers notifications.  Creating content too quickly using this endpoint
+        may result in abuse rate limiting.
+
+    .EXAMPLE
+        Merge-GitHubPullRequest -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39 -Title 'Add Merge-GitHubPullRequest' -Message 'Adds support for the merge endpoint for pull requests' -sha 1234567890 -Method Squash
+
+        Completes and merges the pull request #39 at SHA 1234567890 using the squash method,
+        with the specified commit title and message.
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(
+        SupportsShouldProcess,
+        DefaultParameterSetName='Elements')]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ParameterSetName='Uri')]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('CommitTitle')]
+        [string] $Title,
+
+        [Alias('CommitMessage')]
+        [string] $Message,
+
+        [string] $Sha,
+
+        [ValidateSet('Merge', 'Squash', 'Rebase')]
+        [string] $MergeMethod = 'Merge',
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+        'SpecifiedSha' = (-not [String]::IsNullOrWhiteSpace($Sha))
+    }
+
+    $hashBody = @{
+        'merge_method' = $MergeMethod.ToLower()
+    }
+
+    if (-not [String]::IsNullOrWhiteSpace($Title)) { $hashBody['commit_title'] = $Title }
+    if (-not [String]::IsNullOrWhiteSpace($Message)) { $hashBody['commit_message'] = $Message }
+    if (-not [String]::IsNullOrWhiteSpace($Sha)) { $hashBody['sha'] = $Sha }
+
+    $mergeMethodActionWord = @{
+        'Merge' = 'Merging'
+        'Squash' = 'Squashing'
+        'Rebase' = 'Rebasing'
+    }
+
+    $params = @{
+        'UriFragment' = "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest/merge"
+        'Method' = 'Put'
+        'Description' = "$($mergeMethodActionWord[$MergeMethod]) pull request $PullRequest"
+        'Body' = ConvertTo-Json -InputObject $hashBody
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+   return Invoke-GHRestMethod @params
 }
 
 filter Add-GitHubPullRequestAdditionalProperties
