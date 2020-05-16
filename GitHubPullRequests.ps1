@@ -400,7 +400,7 @@ function Get-GitHubPullRequestFile
 
 filter New-GitHubPullRequest
 {
-    <#
+<#
     .SYNOPSIS
         Create a new pull request in the specified repository.
 
@@ -503,8 +503,7 @@ filter New-GitHubPullRequest
 
     .EXAMPLE
         New-GitHubPullRequest -Uri 'https://github.com/PowerShell/PSScriptAnalyzer' -Issue 642 -Head simple-test -HeadOwner octocat -Base development -Draft
-    #>
-
+#>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [CmdletBinding(
         SupportsShouldProcess,
@@ -649,6 +648,244 @@ filter New-GitHubPullRequest
     }
 
     return (Invoke-GHRestMethod @restParams | Add-GitHubPullRequestAdditionalProperties)
+}
+
+function Update-GitHubPullRequestBranch
+{
+<#
+    .SYNOPSIS
+        Updates the pull request branch with the latest upstream changes by
+        merging HEAD from the base branch into the pull request branch.
+
+    .DESCRIPTION
+        Updates the pull request branch with the latest upstream changes by
+        merging HEAD from the base branch into the pull request branch.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request to update.
+
+    .PARAMETER Sha
+        The expected SHA of the pull request's HEAD ref.  This is the most recent commit on the
+        pull request's branch.  If the expected SHA does not match the pull request's HEAD, you
+        will receive a 422 exception.  You can use Get-GitHubPullRequestCommit to find the most
+        recent commit SHA.  Defaults to the pull request's current HEAD ref.
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .EXAMPLE
+        Update-GitHubPullRequestBranch -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+#>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName='Elements')]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ParameterSetName='Uri')]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest,
+
+        [string] $Sha,
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+        'SpecifiedSha' = (-not [String]::IsNullOrWhiteSpace($Sha))
+    }
+
+    $hashBody = @{}
+    if (-not [String]::IsNullOrWhiteSpace($Sha)) { $hashBody['expected_head_sha'] = $Sha }
+
+    $restParams = @{
+        'UriFragment' = "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest/update-branch"
+        'Method' = 'Put'
+        'Description' = "Updating the branch for pull request $PullRequest"
+        'AcceptHeader' = 'application/vnd.github.lydian-preview+json'
+        'Body' = ConvertTo-Json -InputObject $hashBody
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+    return Invoke-GHRestMethod @restParams
+}
+
+function Update-GitHubPullRequest
+{
+<#
+    .SYNOPSIS
+        Updates the pull request branch with the latest upstream changes by
+        merging HEAD from the base branch into the pull request branch.
+
+    .DESCRIPTION
+        Updates the pull request branch with the latest upstream changes by
+        merging HEAD from the base branch into the pull request branch.
+
+        The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
+
+    .PARAMETER OwnerName
+        Owner of the repository.
+        If not supplied here, the DefaultOwnerName configuration property value will be used.
+
+    .PARAMETER RepositoryName
+        Name of the repository.
+        If not supplied here, the DefaultRepositoryName configuration property value will be used.
+
+    .PARAMETER Uri
+        Uri for the repository.
+        The OwnerName and RepositoryName will be extracted from here instead of needing to provide
+        them individually.
+
+    .PARAMETER PullRequest
+        The ID of the pull request to update.
+
+    .PARAMETER Title
+        The new title of the pull request.
+
+    .PARAMETER Body
+        The new text description for the pull request.
+
+    .PARAMETER State
+        The new state for the pull request.
+
+    .PARAMETER Base
+        The name of the branch you want your changes pulled into.
+        This should be an existing branch on the current repository.
+        You cannot update the base branch on a pull request to point to another repository.
+
+    .PARAMETER MaintainerCanModify
+        If provided, indicates whether repository maintainers can commit changes to the
+        head branch of this pull request.  To disable this, specify the switch with the value $false
+        (e.g. -MaintainerCanModify:$false)
+
+    .PARAMETER AccessToken
+        If provided, this will be used as the AccessToken for authentication with the
+        REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
+
+    .PARAMETER NoStatus
+        If this switch is specified, long-running commands will run on the main thread
+        with no commandline status update.  When not specified, those commands run in
+        the background, enabling the command prompt to provide status information.
+        If not supplied here, the DefaultNoStatus configuration property value will be used.
+
+    .EXAMPLE
+        Update-GitHubPullRequestBranch -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+
+    .NOTES
+        To open or update a pull request in a public repository, you must have write access to the
+        head or the source branch. For organization-owned repositories, you must be a member of
+        the organization that owns the repository to open or update a pull request.
+#>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName='Elements')]
+    param(
+        [Parameter(ParameterSetName='Elements')]
+        [string] $OwnerName,
+
+        [Parameter(ParameterSetName='Elements')]
+        [string] $RepositoryName,
+
+        [Parameter(
+            Mandatory,
+            ParameterSetName='Uri')]
+        [string] $Uri,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest,
+
+        [string] $Title,
+
+        [string] $Body,
+
+        [ValidateSet('Open', 'Closed')]
+        [string] $State,
+
+        [string] $Base,
+
+        [switch] $MaintainerCanModify,
+
+        [string] $AccessToken,
+
+        [switch] $NoStatus
+    )
+
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+        'ProvidedTitle' = (-not [String]::IsNullOrWhiteSpace($Title))
+        'ProvidedBody' = (-not [String]::IsNullOrWhiteSpace($Body))
+        'ProvidedBase' = (-not [String]::IsNullOrWhiteSpace($Base))
+        'ProvidedMaintainerCanModify' = ($MaintainerCanModify.IsPresent)
+    }
+
+    $hashBody = @{}
+    if (-not [String]::IsNullOrWhiteSpace($Title)) { $hashBody['title'] = $Title }
+    if (-not [String]::IsNullOrWhiteSpace($body)) { $hashBody['body'] = $Body }
+    if (-not [String]::IsNullOrWhiteSpace($State)) { $hashBody['state'] = $State.ToLower() }
+    if (-not [String]::IsNullOrWhiteSpace($Base)) { $hashBody['base'] = $Base }
+    if ($MaintainerCanModify.IsPresent) { $hashBody['maintainer_can_modify'] = $MaintainerCanModify.ToBool() }
+
+    $restParams = @{
+        'UriFragment' = "/repos/$OwnerName/$RepositoryName/pulls/$PullRequest"
+        'Method' = 'Patch'
+        'Description' = "Updating the pull request $PullRequest"
+        'AcceptHeader' = 'application/vnd.github.sailor-v-preview+json'
+        'Body' = ConvertTo-Json -InputObject $hashBody
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
+    }
+
+    return Invoke-GHRestMethod @restParams
 }
 
 function Test-GitHubPullRequestMerged
