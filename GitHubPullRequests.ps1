@@ -221,7 +221,7 @@ filter Get-GitHubPullRequestCommit
         them individually.
 
     .PARAMETER PullRequest
-        The ID of the pull request ID to return the commits for.
+        The ID of the pull request to return the commits for.
 
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
@@ -333,7 +333,7 @@ function Get-GitHubPullRequestFile
         them individually.
 
     .PARAMETER PullRequest
-        The ID of the pull request ID to return the files for.
+        The ID of the pull request to return the files for.
 
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
@@ -868,7 +868,7 @@ function Update-GitHubPullRequest
 
     $hashBody = @{}
     if (-not [String]::IsNullOrWhiteSpace($Title)) { $hashBody['title'] = $Title }
-    if (-not [String]::IsNullOrWhiteSpace($body)) { $hashBody['body'] = $Body }
+    if (-not [String]::IsNullOrWhiteSpace($Body)) { $hashBody['body'] = $Body }
     if (-not [String]::IsNullOrWhiteSpace($State)) { $hashBody['state'] = $State.ToLower() }
     if (-not [String]::IsNullOrWhiteSpace($Base)) { $hashBody['base'] = $Base }
     if ($MaintainerCanModify.IsPresent) { $hashBody['maintainer_can_modify'] = $MaintainerCanModify.ToBool() }

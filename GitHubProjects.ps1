@@ -644,7 +644,7 @@ filter Remove-GitHubProject
         $ConfirmPreference = 'None'
     }
 
-    if ($PSCmdlet.ShouldProcess($project, "Remove project"))
+    if ($PSCmdlet.ShouldProcess($Project, "Remove project"))
     {
         $params = @{
             'UriFragment' = $uriFragment
