@@ -113,6 +113,16 @@ filter Get-GitHubLabel
 
     Write-InvocationLog
 
+    Write-Host "ParamSetName: [$($PSCmdlet.ParameterSetName)]"
+    write-host "OwnerName: [$OwnerName]"
+    write-host "RepositoryName: [$RepositoryName]"
+    write-host "Uri: [$Uri]"
+    write-host "Label: [$Label]"
+    write-host "Issue: [$Issue]"
+    write-host "Milestone: [$Milestone]"
+
+    return
+
     $elements = Resolve-RepositoryElements
     $OwnerName = $elements.ownerName
     $RepositoryName = $elements.repositoryName
