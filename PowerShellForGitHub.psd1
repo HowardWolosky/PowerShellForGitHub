@@ -185,6 +185,7 @@
         'Set-GitHubIssueLabel',
         'Set-GitHubLabel',
         'Set-GitHubMilestone',
+        'Set-GitHubPullRequest',
         'Set-GitHubProfile',
         'Set-GitHubProject',
         'Set-GitHubProjectCard',
@@ -202,7 +203,6 @@
         'Test-GitHubOrganizationMember',
         'Test-GitHubRepositoryVulnerabilityAlert',
         'Unlock-GitHubIssue',
-        'Update-GitHubPullRequest',
         'Update-GitHubPullRequestBranch'
     )
 
@@ -251,6 +251,7 @@
         'Update-GitHubIssue',
         'Update-GitHubLabel',
         'Update-GitHubCurrentUser',
+        'Update-GitHubPullRequest',
         'Update-GitHubRepository'
     )
 

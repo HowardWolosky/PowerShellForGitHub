@@ -3,7 +3,10 @@
 
 @{
     GitHubPullRequestTypeName = 'GitHub.PullRequest'
+    GitHubPullRequestUpdateBranchResponseTypeName = 'GitHub.PullRequestUpdateBranchResponse'
+    GitHubPullRequestMergeResponseTypeName = 'GitHub.PullRequestMergeResponse'
     GitHubCommitTypeName = 'GitHub.Commit'
+    GitHubFileTypeName = 'GitHub.File'
  }.GetEnumerator() | ForEach-Object {
      Set-Variable -Scope Script -Option ReadOnly -Name $_.Key -Value $_.Value
  }
@@ -308,7 +311,7 @@ filter Get-GitHubPullRequestCommit
     return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubCommitAdditionalProperties)
 }
 
-function Get-GitHubPullRequestFile
+filter Get-GitHubPullRequestFile
 {
 <#
     .SYNOPSIS
@@ -346,8 +349,23 @@ function Get-GitHubPullRequestFile
         the background, enabling the command prompt to provide status information.
         If not supplied here, the DefaultNoStatus configuration property value will be used.
 
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
     .OUTPUTS
-        [PSCustomObject[]] List of commits for the specified pull request.
+        GitHub.File
 
     .EXAMPLE
         Get-GitHubPullRequestFile -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
@@ -355,6 +373,7 @@ function Get-GitHubPullRequestFile
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParameterSetName='Elements')]
+    [OutputType({$script:GitHubFileTypeName})]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
@@ -366,10 +385,15 @@ function Get-GitHubPullRequestFile
 
         [Parameter(
             Mandatory,
+            ValueFromPipelineByPropertyName,
             ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
         [string] $Uri,
 
-        [Parameter(Mandatory)]
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
         [int64] $PullRequest,
 
         [string] $AccessToken,
@@ -397,7 +421,7 @@ function Get-GitHubPullRequestFile
         'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return Invoke-GHRestMethodMultipleResult @params
+    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubFileAdditionalProperties -PullRequest $PullRequest)
 }
 
 filter New-GitHubPullRequest
@@ -506,10 +530,11 @@ filter New-GitHubPullRequest
     .EXAMPLE
         New-GitHubPullRequest -Uri 'https://github.com/PowerShell/PSScriptAnalyzer' -Issue 642 -Head simple-test -HeadOwner octocat -Base development -Draft
 #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParameterSetName='Elements_Title')]
+    [OutputType({$script:GitHubPullRequestTypeName})]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     param(
         [Parameter(ParameterSetName='Elements_Title')]
         [Parameter(ParameterSetName='Elements_Issue')]
@@ -652,7 +677,7 @@ filter New-GitHubPullRequest
     return (Invoke-GHRestMethod @restParams | Add-GitHubPullRequestAdditionalProperties)
 }
 
-function Update-GitHubPullRequestBranch
+filter Update-GitHubPullRequestBranch
 {
 <#
     .SYNOPSIS
@@ -697,12 +722,31 @@ function Update-GitHubPullRequestBranch
         the background, enabling the command prompt to provide status information.
         If not supplied here, the DefaultNoStatus configuration property value will be used.
 
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
+    .OUTPUTS
+        GitHub.PullRequestUpdateBranchResponse
+
     .EXAMPLE
         Update-GitHubPullRequestBranch -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
 #>
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParameterSetName='Elements')]
+    [OutputType({$script:GitHubPullRequestUpdateBranchResponseTypeName})]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
@@ -714,10 +758,15 @@ function Update-GitHubPullRequestBranch
 
         [Parameter(
             Mandatory,
+            ValueFromPipelineByPropertyName,
             ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
         [string] $Uri,
 
-        [Parameter(Mandatory)]
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
         [int64] $PullRequest,
 
         [string] $Sha,
@@ -754,10 +803,11 @@ function Update-GitHubPullRequestBranch
         'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return Invoke-GHRestMethod @restParams
+    return (Invoke-GHRestMethod @restParams |
+        Add-GitHubPullRequestUpdateBranchResponseAdditionalProperties)
 }
 
-function Update-GitHubPullRequest
+filter Set-GitHubPullRequest
 {
 <#
     .SYNOPSIS
@@ -815,8 +865,26 @@ function Update-GitHubPullRequest
         the background, enabling the command prompt to provide status information.
         If not supplied here, the DefaultNoStatus configuration property value will be used.
 
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
+    .OUTPUTS
+        GitHub.PullRequest
+
     .EXAMPLE
-        Update-GitHubPullRequestBranch -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
+        Set-GitHubPullRequestBranch -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
 
     .NOTES
         To open or update a pull request in a public repository, you must have write access to the
@@ -826,6 +894,8 @@ function Update-GitHubPullRequest
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParameterSetName='Elements')]
+    [OutputType({$script:GitHubPullRequestTypeName})]
+    [Alias('Update-GitHubPullRequest')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
@@ -837,10 +907,15 @@ function Update-GitHubPullRequest
 
         [Parameter(
             Mandatory,
+            ValueFromPipelineByPropertyName,
             ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
         [string] $Uri,
 
-        [Parameter(Mandatory)]
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
         [int64] $PullRequest,
 
         [string] $Title,
@@ -893,10 +968,10 @@ function Update-GitHubPullRequest
         'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return Invoke-GHRestMethod @restParams
+    return (Invoke-GHRestMethod @restParams | Add-GitHubPullRequestAdditionalProperties)
 }
 
-function Test-GitHubPullRequestMerged
+filter Test-GitHubPullRequestMerged
 {
     <#
     .SYNOPSIS
@@ -936,6 +1011,21 @@ function Test-GitHubPullRequestMerged
         the background, enabling the command prompt to provide status information.
         If not supplied here, the DefaultNoStatus configuration property value will be used.
 
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
     .OUTPUTS
         [bool] $true if the pull request exists, is accessible and has been merged.  $false otherwise.
 
@@ -967,10 +1057,15 @@ function Test-GitHubPullRequestMerged
 
         [Parameter(
             Mandatory,
+            ValueFromPipelineByPropertyName,
             ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
         [string] $Uri,
 
-        [Parameter(Mandatory)]
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
         [int64] $PullRequest,
 
         [string] $AccessToken,
@@ -1011,7 +1106,7 @@ function Test-GitHubPullRequestMerged
     }
 }
 
-function Merge-GitHubPullRequest
+filter Merge-GitHubPullRequest
 {
     <#
     .SYNOPSIS
@@ -1062,6 +1157,24 @@ function Merge-GitHubPullRequest
         the background, enabling the command prompt to provide status information.
         If not supplied here, the DefaultNoStatus configuration property value will be used.
 
+    .INPUTS
+        GitHub.Branch
+        GitHub.Content
+        GitHub.Event
+        GitHub.Issue
+        GitHub.IssueComment
+        GitHub.Label
+        GitHub.Milestone
+        GitHub.PullRequest
+        GitHub.Project
+        GitHub.ProjectCard
+        GitHub.ProjectColumn
+        GitHub.Release
+        GitHub.Repository
+
+    .OUTPUTS
+        GitHub.PullRequestMergeResponse
+
     .NOTES
         This endpoind triggers notifications.  Creating content too quickly using this endpoint
         may result in abuse rate limiting.
@@ -1076,6 +1189,7 @@ function Merge-GitHubPullRequest
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParameterSetName='Elements')]
+    [OutputType({$script:GitHubPullRequestMergeResponse})]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
@@ -1087,10 +1201,15 @@ function Merge-GitHubPullRequest
 
         [Parameter(
             Mandatory,
+            ValueFromPipelineByPropertyName,
             ParameterSetName='Uri')]
+        [Alias('RepositoryUrl')]
         [string] $Uri,
 
-        [Parameter(Mandatory)]
+        [Parameter(
+            Mandatory,
+            ValueFromPipelineByPropertyName)]
+        [Alias('PullRequestNumber')]
         [int64] $PullRequest,
 
         [ValidateNotNullOrEmpty()]
@@ -1147,7 +1266,8 @@ function Merge-GitHubPullRequest
         'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-   return Invoke-GHRestMethod @params
+    return (Invoke-GHRestMethod @params |
+        Add-GitHubPullRequestMergeResponseAdditionalProperties -OwnerName $OwnerName -RepositoryName $RepositoryName -PullRequest $PullRequest)
 }
 
 filter Add-GitHubPullRequestAdditionalProperties
@@ -1161,6 +1281,12 @@ filter Add-GitHubPullRequestAdditionalProperties
 
     .PARAMETER TypeName
         The type that should be assigned to the object.
+
+    .INPUTS
+        [PSCustomObject]
+
+    .OUTPUTS
+        GitHub.PullRequest
 #>
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
@@ -1212,6 +1338,241 @@ filter Add-GitHubPullRequestAdditionalProperties
             }
 
             # TODO: What type are item.head and item.base?
+        }
+
+        Write-Output $item
+    }
+}
+
+filter Add-GitHubCommitAdditionalProperties
+{
+<#
+    .SYNOPSIS
+        Adds type name and additional properties to ease pipelining to GitHub Commit objects.
+
+    .PARAMETER InputObject
+        The GitHub object to add additional properties to.
+
+    .PARAMETER TypeName
+        The type that should be assigned to the object.
+
+    .INPUTS
+        [PSCustomObject]
+
+    .OUTPUTS
+        GitHub.Commit
+#>
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
+    param(
+        [Parameter(
+            Mandatory,
+            ValueFromPipeline)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [PSCustomObject[]] $InputObject,
+
+        [ValidateNotNullOrEmpty()]
+        [string] $TypeName = $script:GitHubCommitTypeName
+    )
+
+    foreach ($item in $InputObject)
+    {
+        $item.PSObject.TypeNames.Insert(0, $TypeName)
+
+        if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
+        {
+            $elements = Split-GitHubUri -Uri $item.url
+            $repositoryUrl = Join-GitHubUri @elements
+            Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
+
+            @('author', 'committer') |
+                ForEach-Object {
+                    if ($null -ne $item.$_)
+                    {
+                        $null = Add-GitHubUserAdditionalProperties -InputObject $item.$_
+                    }
+                }
+        }
+
+        Write-Output $item
+    }
+}
+
+filter Add-GitHubFileAdditionalProperties
+{
+<#
+    .SYNOPSIS
+        Adds type name and additional properties to ease pipelining to GitHub File objects.
+
+    .PARAMETER InputObject
+        The GitHub object to add additional properties to.
+
+    .PARAMETER TypeName
+        The type that should be assigned to the object.
+
+    .PARAMETER PullRequest
+        The ID of the Pull Request that this file is associated with.
+
+    .INPUTS
+        [PSCustomObject]
+
+    .OUTPUTS
+        GitHub.File
+#>
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
+    param(
+        [Parameter(
+            Mandatory,
+            ValueFromPipeline)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [PSCustomObject[]] $InputObject,
+
+        [ValidateNotNullOrEmpty()]
+        [string] $TypeName = $script:GitHubFileTypeName,
+
+        [int64] $PullRequest
+    )
+
+    foreach ($item in $InputObject)
+    {
+        $item.PSObject.TypeNames.Insert(0, $TypeName)
+
+        if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
+        {
+            $elements = Split-GitHubUri -Uri $item.raw_url
+            $repositoryUrl = Join-GitHubUri @elements
+            Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
+
+            if ($PullRequest -gt 0)
+            {
+                Add-Member -InputObject $item -Name 'PullRequestNumber' -Value $PullRequest -MemberType NoteProperty -Force
+            }
+        }
+
+        Write-Output $item
+    }
+}
+
+filter Add-GitHubPullRequestUpdateBranchResponseAdditionalProperties
+{
+<#
+    .SYNOPSIS
+        Adds type name and additional properties to ease pipelining to the response for
+        updating a GitHub Pull Request Branch.
+
+    .PARAMETER InputObject
+        The GitHub object to add additional properties to.
+
+    .PARAMETER TypeName
+        The type that should be assigned to the object.
+
+    .INPUTS
+        [PSCustomObject]
+
+    .OUTPUTS
+        GitHub.PullRequestUpdateBranchResponse
+#>
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
+    param(
+        [Parameter(
+            Mandatory,
+            ValueFromPipeline)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [PSCustomObject[]] $InputObject,
+
+        [ValidateNotNullOrEmpty()]
+        [string] $TypeName = $script:GitHubPullRequestUpdateBranchResponse
+    )
+
+    foreach ($item in $InputObject)
+    {
+        $item.PSObject.TypeNames.Insert(0, $TypeName)
+
+        if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
+        {
+            $elements = Split-GitHubUri -Uri $item.url
+            $repositoryUrl = Join-GitHubUri @elements
+            Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
+
+            if ($item.url -match '.*/(/d+)$')
+            {
+                $pullRequestNumber = $Matches[1]
+                Add-Member -InputObject $item -Name 'PullRequestNumber' -Value $pullRequestNumber -MemberType NoteProperty -Force
+            }
+        }
+
+        Write-Output $item
+    }
+}
+
+filter Add-GitHubPullRequestMergeResponseAdditionalProperties
+{
+<#
+    .SYNOPSIS
+        Adds type name and additional properties to ease pipelining to the response for
+        updating a GitHub Pull Request Branch.
+
+    .PARAMETER InputObject
+        The GitHub object to add additional properties to.
+
+    .PARAMETER TypeName
+        The type that should be assigned to the object.
+
+    .PARAMETER OwnerName
+        Owner of the repository that the Pull Request was merged into.
+
+    .PARAMETER RepositoryName
+        Name of the repository that the Pull Request was merged into.
+
+    .PARAMETER PullRequest
+        The ID of the Pull Request that was just merged.
+
+    .INPUTS
+        [PSCustomObject]
+
+    .OUTPUTS
+        GitHub.PullRequestMergeResponse
+#>
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
+    param(
+        [Parameter(
+            Mandatory,
+            ValueFromPipeline)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [PSCustomObject[]] $InputObject,
+
+        [ValidateNotNullOrEmpty()]
+        [string] $TypeName = $script:GitHubPullRequestMergeResponse,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $OwnerName,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $RepositoryName,
+
+        [Parameter(Mandatory)]
+        [int64] $PullRequest
+    )
+
+    foreach ($item in $InputObject)
+    {
+        $item.PSObject.TypeNames.Insert(0, $TypeName)
+
+        if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
+        {
+            $repositoryUrl = Join-GitHubUri -OwnerName $OwnerName -RepositoryName $RepositoryName
+            Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
+
+            Add-Member -InputObject $item -Name 'PullRequestNumber' -Value $PullRequest -MemberType NoteProperty -Force
         }
 
         Write-Output $item
