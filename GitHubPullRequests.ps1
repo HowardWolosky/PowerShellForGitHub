@@ -94,10 +94,7 @@ filter Get-GitHubPullRequest
     .EXAMPLE
         $pullRequests = Get-GitHubPullRequest -OwnerName microsoft -RepositoryName PowerShellForGitHub -State Closed
 #>
-    [CmdletBinding(
-        SupportsShouldProcess,
-        DefaultParameterSetName='Elements')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(DefaultParameterSetName='Elements')]
     param(
         [Parameter(ParameterSetName='Elements')]
         [string] $OwnerName,
@@ -257,11 +254,8 @@ filter Get-GitHubPullRequestCommit
     .EXAMPLE
         Get-GitHubPullRequestCommit -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
 #>
-    [CmdletBinding(
-        SupportsShouldProcess,
-        DefaultParameterSetName='Elements')]
+    [CmdletBinding(DefaultParameterSetName='Elements')]
     [OutputType({$script:GitHubCommitTypeName})]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
         [Parameter(ParameterSetName='Elements')]
@@ -370,11 +364,8 @@ filter Get-GitHubPullRequestFile
     .EXAMPLE
         Get-GitHubPullRequestFile -Uri 'https://github.com/PowerShell/PowerShellForGitHub' -PullRequest 39
 #>
-    [CmdletBinding(
-        SupportsShouldProcess,
-        DefaultParameterSetName='Elements')]
+    [CmdletBinding(DefaultParameterSetName='Elements')]
     [OutputType({$script:GitHubFileTypeName})]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
     param(
         [Parameter(ParameterSetName='Elements')]
@@ -597,6 +588,11 @@ filter New-GitHubPullRequest
         [switch] $NoStatus
     )
 
+    if (-not $PSCmdlet.ShouldProcess('Pull Request', 'New'))
+    {
+        return
+    }
+
     Write-InvocationLog
 
     if (-not [string]::IsNullOrWhiteSpace($HeadOwner))
@@ -776,11 +772,16 @@ filter Update-GitHubPullRequestBranch
         [switch] $NoStatus
     )
 
-    Write-InvocationLog
-
     $elements = Resolve-RepositoryElements
     $OwnerName = $elements.ownerName
     $RepositoryName = $elements.repositoryName
+
+    if (-not $PSCmdlet.ShouldProcess($PullRequest, 'Update GitHub Pull Request Branch'))
+    {
+        return
+    }
+
+    Write-InvocationLog
 
     $telemetryProperties = @{
         'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
@@ -934,11 +935,16 @@ filter Set-GitHubPullRequest
         [switch] $NoStatus
     )
 
-    Write-InvocationLog
-
     $elements = Resolve-RepositoryElements
     $OwnerName = $elements.ownerName
     $RepositoryName = $elements.repositoryName
+
+    if (-not $PSCmdlet.ShouldProcess($PullRequest, 'Update GitHub Pull Request'))
+    {
+        return
+    }
+
+    Write-InvocationLog
 
     $telemetryProperties = @{
         'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
@@ -1042,9 +1048,7 @@ filter Test-GitHubPullRequestMerged
         be updated.
     #>
 
-    [CmdletBinding(
-        SupportsShouldProcess,
-        DefaultParameterSetName='Elements')]
+    [CmdletBinding(DefaultParameterSetName='Elements')]
     [OutputType([bool])]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSReviewUnusedParameter", "", Justification="One or more parameters (like NoStatus) are only referenced by helper methods which get access to it from the stack via Get-Variable -Scope 1.")]
@@ -1229,11 +1233,16 @@ filter Merge-GitHubPullRequest
         [switch] $NoStatus
     )
 
-    Write-InvocationLog
-
     $elements = Resolve-RepositoryElements
     $OwnerName = $elements.ownerName
     $RepositoryName = $elements.repositoryName
+
+    if (-not $PSCmdlet.ShouldProcess($PullRequest, 'Merge GitHub Pull Request'))
+    {
+        return
+    }
+
+    Write-InvocationLog
 
     $telemetryProperties = @{
         'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
