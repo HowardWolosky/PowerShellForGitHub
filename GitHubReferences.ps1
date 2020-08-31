@@ -3,6 +3,7 @@
 
 @{
     GitHubReferenceTypeName = 'GitHub.Reference'
+    GitHubTagTypeName = 'GitHub.Tag'
  }.GetEnumerator() | ForEach-Object {
      Set-Variable -Scope Script -Option ReadOnly -Name $_.Key -Value $_.Value
  }
@@ -38,17 +39,12 @@ filter Get-GitHubReference
         The name of the Branch to be retrieved.
 
     .PARAMETER MatchPrefix
-        If provided, this will return matching preferences for the given branch/tag name in case an exact match is not found
+        When specified, this will return all references from the Git repository that start with the
+        provided BranchName or TagName.
 
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
         REST Api. Otherwise, will attempt to use the configured value or will run unauthenticated.
-
-    .PARAMETER NoStatus
-        If this switch is specified, long-running commands will run on the main thread
-        with no commandline status update. When not specified, those commands run in
-        the background, enabling the command prompt to provide status information.
-        If not supplied here, the DefaultNoStatus configuration property value will be used.
 
     .INPUTS
         GitHub.Branch
@@ -68,7 +64,6 @@ filter Get-GitHubReference
 
     .OUTPUTS
         GitHub.Reference
-        Details of the git reference in the given repository
 
     .EXAMPLE
         Get-GitHubReference -OwnerName microsoft -RepositoryName PowerShellForGitHub -TagName powershellTagV1
@@ -77,21 +72,20 @@ filter Get-GitHubReference
         Get-GitHubReference -OwnerName microsoft -RepositoryName PowerShellForGitHub -BranchName master
 
     .EXAMPLE
-        Get-GitHubReference -OwnerName microsoft -RepositoryName PowerShellForGitHub -BranchName powershell -MatchPrefix
+        Get-GitHubReference -OwnerName microsoft -RepositoryName PowerShellForGitHub -TagName '0.' -MatchPrefix
 
-        Get the branch 'powershell' and if it doesn't exist, get all branches beginning with 'powershell'
+        Returns all of the references that have a tag which begins with "0."
 
     .EXAMPLE
         $repo = Get-GitHubRepository -OwnerName microsoft -RepositoryName PowerShellForGitHub
-        $repo | Get-GitHubReference -BranchName powershell
+        $repo | Get-GitHubReference
 
-        Get details of the "powershell" branch in the repository
+        You can also pipe in the output from a previous command. In this case, this will return
+        back all of the references in the microsoft/PowerShellForGitHub repository.
 
 #>
-    [CmdletBinding(
-        SupportsShouldProcess,
-        DefaultParameterSetName='Uri')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [CmdletBinding(DefaultParameterSetName='Uri')]
+    [OutputType({$script:GitHubReferenceTypeName})]
     param(
         [Parameter(
             Mandatory,
@@ -156,9 +150,7 @@ filter Get-GitHubReference
         [Parameter(ParameterSetName='TagElements')]
         [switch] $MatchPrefix,
 
-        [string] $AccessToken,
-
-        [switch] $NoStatus
+        [string] $AccessToken
     )
 
     Write-InvocationLog
@@ -177,23 +169,21 @@ filter Get-GitHubReference
 
     if ([String]::IsNullOrEmpty($reference))
     {
-        # Add a slash at the end as Invoke-GHRestMethod removes the last trailing slash. Calling this API without the slash causes a 404
+        # Invoke-GHRestMethod removes the last trailing slash.
+        # Calling this endpoint without the slash causes a 404, so we must add an extra slash at
+        # the end to ensure we have it.
         $uriFragment = $uriFragment + "/matching-refs//"
         $description = "Getting all references for $RepositoryName"
     }
+    elseif ($MatchPrefix)
+    {
+        $uriFragment = $uriFragment + "/matching-refs/$reference"
+        $description = "Getting references matching $reference for $RepositoryName"
+    }
     else
     {
-        if ($MatchPrefix)
-        {
-            $uriFragment = $uriFragment + "/matching-refs/$reference"
-            $description = "Getting references matching $reference for $RepositoryName"
-        }
-        else
-        {
-            # We want to return an exact match, call the 'get single reference' API
-            $uriFragment = $uriFragment + "/ref/$reference"
-            $description = "Getting reference $reference for $RepositoryName"
-        }
+        $uriFragment = $uriFragment + "/ref/$reference"
+        $description = "Getting reference $reference for $RepositoryName"
     }
 
     $params = @{
@@ -202,10 +192,9 @@ filter Get-GitHubReference
         'AccessToken' = $AccessToken
         'TelemetryEventName' = $MyInvocation.MyCommand.Name
         'TelemetryProperties' = $telemetryProperties
-        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubBranchAdditionalProperties)
+    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubReferenceAdditionalProperties)
 }
 
 filter New-GitHubReference
@@ -239,17 +228,11 @@ filter New-GitHubReference
         The name of the Branch to be created.
 
     .PARAMETER Sha
-        The SHA1 value for the reference to be created
+        The SHA1 value for the reference to be created.
 
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
         REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
-
-    .PARAMETER NoStatus
-        If this switch is specified, long-running commands will run on the main thread
-        with no commandline status update.  When not specified, those commands run in
-        the background, enabling the command prompt to provide status information.
-        If not supplied here, the DefaultNoStatus configuration property value will be used.
 
     .INPUTS
         GitHub.Branch
@@ -269,7 +252,6 @@ filter New-GitHubReference
 
     .OUTPUTS
         GitHub.Reference
-        Details of the git reference created. Throws an Exception if the reference already exists
 
     .EXAMPLE
         New-GitHubReference -OwnerName microsoft -RepositoryName PowerShellForGitHub -TagName powershellTagV1 -Sha aa218f56b14c9653891f9e74264a383fa43fefbd
@@ -279,12 +261,12 @@ filter New-GitHubReference
 
     .EXAMPLE
         $repo = Get-GitHubRepository -OwnerName microsoft -RepositoryName PowerShellForGitHub
-        $repo | New-GitHubReference -BranchName powershell -Sha aa218f56b14c9653891f9e74264a383fa43fefbd
+        $repo | New-GitHubReference -BranchName release -Sha aa218f56b14c9653891f9e74264a383fa43fefbd
 
-        Create a new branch named "powershell" in the given repository
+        Create a new branch named "release" in the given repository
     #>
     [CmdletBinding(SupportsShouldProcess)]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [OutputType({$script:GitHubReferenceTypeName})]
     param(
         [Parameter(
             Mandatory,
@@ -366,10 +348,14 @@ filter New-GitHubReference
         'AccessToken' = $AccessToken
         'TelemetryEventName' = $MyInvocation.MyCommand.Name
         'TelemetryProperties' = $telemetryProperties
-        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return (Invoke-GHRestMethod @params | Add-GitHubBranchAdditionalProperties)
+    if (-not $PSCmdlet.ShouldProcess($reference, "Create reference from SHA $Sha"))
+    {
+        return
+    }
+
+    return (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
 }
 
 filter Set-GithubReference
@@ -413,12 +399,6 @@ filter Set-GithubReference
         If provided, this will be used as the AccessToken for authentication with the
         REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
 
-    .PARAMETER NoStatus
-        If this switch is specified, long-running commands will run on the main thread
-        with no commandline status update.  When not specified, those commands run in
-        the background, enabling the command prompt to provide status information.
-        If not supplied here, the DefaultNoStatus configuration property value will be used.
-
      .INPUTS
         GitHub.Branch
         GitHub.Content
@@ -459,7 +439,7 @@ filter Set-GithubReference
     [CmdletBinding(
         SupportsShouldProcess,
         DefaultParametersetName='Uri')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", "", Justification="Methods called within here make use of PSShouldProcess, and the switch is passed on to them inherently.")]
+    [OutputType({$script:GitHubReferenceTypeName})]
     param(
         [Parameter(
             Mandatory,
@@ -513,9 +493,7 @@ filter Set-GithubReference
 
         [switch] $Force,
 
-        [string] $AccessToken,
-
-        [switch] $NoStatus
+        [string] $AccessToken
     )
 
     Write-InvocationLog
@@ -550,7 +528,12 @@ filter Set-GithubReference
         'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
-    return (Invoke-GHRestMethod @params | Add-GitHubBranchAdditionalProperties)
+    if (-not $PSCmdlet.ShouldProcess($Sha, "Update Sha for $reference"))
+    {
+        return
+    }
+
+    return (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
 }
 
 filter Remove-GitHubReference
@@ -589,12 +572,6 @@ filter Remove-GitHubReference
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
         REST Api.  Otherwise, will attempt to use the configured value or will run unauthenticated.
-
-    .PARAMETER NoStatus
-        If this switch is specified, long-running commands will run on the main thread
-        with no commandline status update.  When not specified, those commands run in
-        the background, enabling the command prompt to provide status information.
-        If not supplied here, the DefaultNoStatus configuration property value will be used.
 
     .INPUTS
         GitHub.Branch
@@ -689,65 +666,65 @@ filter Remove-GitHubReference
             ParameterSetName='BranchElements')]
         [string] $BranchName,
 
-        [string] $AccessToken,
+        [switch] $Force,
 
-        [switch] $NoStatus
+        [string] $AccessToken
     )
 
-    $repositoryInfoForDisplayMessage = if ($PSCmdlet.ParameterSetName -eq "Uri") { $Uri } else { $OwnerName, $RepositoryName -join "/" }
+    Write-InvocationLog
+
+    $elements = Resolve-RepositoryElements -BoundParameters $PSBoundParameters
+    $OwnerName = $elements.ownerName
+    $RepositoryName = $elements.repositoryName
+
+    $telemetryProperties = @{
+        'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
+        'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
+    }
+
     $reference = Resolve-GitHubReference -TagName $TagName -BranchName $BranchName
+
     if ($Force -and (-not $Confirm))
     {
         $ConfirmPreference = 'None'
     }
-    if ($PSCmdlet.ShouldProcess($repositoryInfoForDisplayMessage, "Remove reference: $reference"))
+
+    if (-not $PSCmdlet.ShouldProcess($reference, "Remove reference"))
     {
-        Write-InvocationLog
-
-        $elements = Resolve-RepositoryElements -BoundParameters $PSBoundParameters
-        $OwnerName = $elements.ownerName
-        $RepositoryName = $elements.repositoryName
-
-        $telemetryProperties = @{
-            'OwnerName' = (Get-PiiSafeString -PlainText $OwnerName)
-            'RepositoryName' = (Get-PiiSafeString -PlainText $RepositoryName)
-        }
-
-        $uriFragment = "repos/$OwnerName/$RepositoryName/git/refs/$reference"
-        $description = "Deleting Reference $reference from repository $RepositoryName"
-
-        $params = @{
-            'UriFragment' = $uriFragment
-            'Method' = 'Delete'
-            'Body' = (ConvertTo-Json -InputObject $hashBody)
-            'Description' = $description
-            'AccessToken' = $AccessToken
-            'TelemetryEventName' = $MyInvocation.MyCommand.Name
-            'TelemetryProperties' = $telemetryProperties
-            'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
-        }
-
-        return Invoke-GHRestMethod @params
+        return
     }
+
+    $uriFragment = "repos/$OwnerName/$RepositoryName/git/refs/$reference"
+    $description = "Deleting Reference $reference from repository $RepositoryName"
+
+    $params = @{
+        'UriFragment' = $uriFragment
+        'Method' = 'Delete'
+        'Body' = (ConvertTo-Json -InputObject $hashBody)
+        'Description' = $description
+        'AccessToken' = $AccessToken
+        'TelemetryEventName' = $MyInvocation.MyCommand.Name
+        'TelemetryProperties' = $telemetryProperties
+    }
+
+    return Invoke-GHRestMethod @params
 }
 
-filter Add-GitHubBranchAdditionalProperties
+filter Add-GitHubReferenceAdditionalProperties
 {
 <#
     .SYNOPSIS
-        Adds type name and additional properties to ease pipelining to GitHub Branch objects.
+        Adds type name and additional properties to ease pipelining to GitHub Reference objects
+        (which includes GitHub.Branch and GitHub.Tag as well).
 
     .PARAMETER InputObject
         The GitHub object to add additional properties to.
-
-    .PARAMETER TypeName
-        The type that should be assigned to the object.
 
     .INPUTS
         [PSCustomObject]
 
     .OUTPUTS
-        GitHub.Reference
+        GitHub.Branch
 #>
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
@@ -757,15 +734,23 @@ filter Add-GitHubBranchAdditionalProperties
             ValueFromPipeline)]
         [AllowNull()]
         [AllowEmptyCollection()]
-        [PSCustomObject[]] $InputObject,
-
-        [ValidateNotNullOrEmpty()]
-        [string] $TypeName = $script:GitHubReferenceTypeName
+        [PSCustomObject[]] $InputObject
     )
 
     foreach ($item in $InputObject)
     {
-        $item.PSObject.TypeNames.Insert(0, $TypeName)
+        # It will always be a GitHub.Reference
+        $item.PSObject.TypeNames.Insert(0, $script:GitHubReferenceTypeName)
+
+        # However, depending on what the ref is, it will _also_ be a Branch or a Tag type as well.
+        if ($item.ref.StartsWith('refs/heads/'))
+        {
+            $item.PSObject.TypeNames.Insert(0, $script:GitHubBranchTypeName)
+        }
+        elseif ($item.ref.StartsWith('refs/tags/'))
+        {
+            $item.PSObject.TypeNames.Insert(0, $script:GitHubTagTypeName)
+        }
 
         if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
         {
@@ -777,19 +762,34 @@ filter Add-GitHubBranchAdditionalProperties
             {
                 $elements = Split-GitHubUri -Uri $item.commit.url
             }
+
             $repositoryUrl = Join-GitHubUri @elements
 
             Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
+
 
             if ($item.ref.StartsWith('refs/heads/'))
             {
                 $branchName = $item.ref -replace ('refs/heads/', '')
                 Add-Member -InputObject $item -Name 'BranchName' -Value $branchName -MemberType NoteProperty -Force
             }
-            if ($item.ref.StartsWith('refs/tags'))
+            elseif ($item.ref.StartsWith('refs/tags'))
             {
                 $tagName = $item.ref -replace ('refs/tags/', '')
                 Add-Member -InputObject $item -Name 'TagName' -Value $tagName -MemberType NoteProperty -Force
+            }
+            else
+            {
+                Add-Member -InputObject $item -Name 'BranchName' -Value $item.name -MemberType NoteProperty -Force
+            }
+
+            if ($null -ne $item.commit)
+            {
+                Add-Member -InputObject $item -Name 'Sha' -Value $item.commit.sha -MemberType NoteProperty -Force
+            }
+            elseif ($null -ne $item.object)
+            {
+                Add-Member -InputObject $item -Name 'Sha' -Value $item.object.sha -MemberType NoteProperty -Force
             }
         }
 
@@ -801,10 +801,11 @@ filter Resolve-GitHubReference
 {
     <#
     .SYNOPSIS
-        Get the given tag or branch in the form of a Github reference
+        Get the given tag or branch in the form of a Github reference.
 
     .DESCRIPTION
-        Get the given tag or branch in the form of a Github reference i.e. tags/<TAG> for a tag and heads/<BRANCH> for a branch
+        Get the given tag or branch in the form of a Github reference
+        (e.g. tags/<TAG> for a tag and heads/<BRANCH> for a branch).
 
         The Git repo for this module can be found here: http://aka.ms/PowerShellForGitHub
 
@@ -814,24 +815,38 @@ filter Resolve-GitHubReference
     .PARAMETER BranchName
         The branch for which we need the reference string
 
+    .OUTPUTS
+        System.String
+
     .EXAMPLE
         Resolve-GitHubReference -TagName powershellTag
 
     .EXAMPLE
         Resolve-GitHubReference -BranchName powershellBranch
     #>
+    [CmdletBinding(PositionalBinding = $false)]
+    [OutputType([String])]
     param(
         [string] $TagName,
+
         [string] $BranchName
     )
+
+    if ((-not [String]::IsNullOrEmpty($TagName)) -and (-not [String]::IsNullOrEmpty($BranchName)))
+    {
+        $message = "Can't resolve _both_ a tag and branch reference at the same time."
+        Write-Log -Message $message -Level Error
+        throw $message
+    }
 
     if (-not [String]::IsNullOrEmpty($TagName))
     {
         return "tags/$TagName"
     }
-    elseif (-not [String]::IsNullOrEmpty($BranchName))
+    else
     {
         return "heads/$BranchName"
     }
+
     return [String]::Empty
 }

@@ -142,7 +142,7 @@ filter Get-GitHubRepositoryBranch
         'TelemetryProperties' = $telemetryProperties
     }
 
-    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubBranchAdditionalProperties)
+    return (Invoke-GHRestMethodMultipleResult @params | Add-GitHubReferenceAdditionalProperties)
 }
 
 filter New-GitHubRepositoryBranch
@@ -344,7 +344,7 @@ filter New-GitHubRepositoryBranch
         'TelemetryProperties' = $telemetryProperties
     }
 
-    return (Invoke-GHRestMethod @params | Add-GitHubBranchAdditionalProperties)
+    return (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
 }
 
 filter Remove-GitHubRepositoryBranch
@@ -1070,78 +1070,6 @@ filter Remove-GitHubRepositoryBranchProtectionRule
     }
 
     return Invoke-GHRestMethod @params | Out-Null
-}
-
-filter Add-GitHubBranchAdditionalProperties
-{
-<#
-    .SYNOPSIS
-        Adds type name and additional properties to ease pipelining to GitHub Branch objects.
-
-    .PARAMETER InputObject
-        The GitHub object to add additional properties to.
-
-    .PARAMETER TypeName
-        The type that should be assigned to the object.
-
-    .INPUTS
-        [PSCustomObject]
-
-    .OUTPUTS
-        GitHub.Branch
-#>
-    [CmdletBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", "", Justification="Internal helper that is definitely adding more than one property.")]
-    param(
-        [Parameter(
-            Mandatory,
-            ValueFromPipeline)]
-        [AllowNull()]
-        [AllowEmptyCollection()]
-        [PSCustomObject[]] $InputObject,
-
-        [ValidateNotNullOrEmpty()]
-        [string] $TypeName = $script:GitHubBranchTypeName
-    )
-
-    foreach ($item in $InputObject)
-    {
-        $item.PSObject.TypeNames.Insert(0, $TypeName)
-
-        if (-not (Get-GitHubConfiguration -Name DisablePipelineSupport))
-        {
-            if ($null -ne $item.url)
-            {
-                $elements = Split-GitHubUri -Uri $item.url
-            }
-            else
-            {
-                $elements = Split-GitHubUri -Uri $item.commit.url
-            }
-            $repositoryUrl = Join-GitHubUri @elements
-
-            Add-Member -InputObject $item -Name 'RepositoryUrl' -Value $repositoryUrl -MemberType NoteProperty -Force
-
-            $branchName = $item.name
-            if ($null -eq $branchName)
-            {
-                $branchName = $item.ref -replace ('refs/heads/', '')
-            }
-
-            Add-Member -InputObject $item -Name 'BranchName' -Value $branchName -MemberType NoteProperty -Force
-
-            if ($null -ne $item.commit)
-            {
-                Add-Member -InputObject $item -Name 'Sha' -Value $item.commit.sha -MemberType NoteProperty -Force
-            }
-            elseif ($null -ne $item.object)
-            {
-                Add-Member -InputObject $item -Name 'Sha' -Value $item.object.sha -MemberType NoteProperty -Force
-            }
-        }
-
-        Write-Output $item
-    }
 }
 
 filter Add-GitHubBranchProtectionRuleAdditionalProperties
