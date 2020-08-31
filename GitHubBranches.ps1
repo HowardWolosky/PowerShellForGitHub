@@ -322,29 +322,17 @@ filter New-GitHubRepositoryBranch
         }
     }
 
-    $uriFragment = "repos/$OwnerName/$RepositoryName/git/refs"
-
-    $hashBody = @{
-        ref = "refs/heads/$TargetBranchName"
-        sha = $Sha
-    }
-
-    if (-not $PSCmdlet.ShouldProcess($BranchName, 'Create Repository Branch'))
-    {
-        return
-    }
-
-    $params = @{
-        'UriFragment' = $uriFragment
-        'Body' = (ConvertTo-Json -InputObject $hashBody)
-        'Method' = 'Post'
-        'Description' = "Creating branch $TargetBranchName for $RepositoryName"
+    $params = {
+        'OwnerName' = $OwnerName
+        'RepositoryName' = $RepositoryName
+        'BranchName' = $TargetBranchName
+        'Sha' = $Sha
         'AccessToken' = $AccessToken
-        'TelemetryEventName' = $MyInvocation.MyCommand.Name
-        'TelemetryProperties' = $telemetryProperties
+        'Confirm' = $Confirm.IsPresent
+        'WhatIf' = $WhatIf.IsPresent
     }
 
-    return (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
+    return New-GitHubReference @params
 }
 
 filter Remove-GitHubRepositoryBranch
