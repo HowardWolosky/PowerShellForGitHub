@@ -322,7 +322,7 @@ filter New-GitHubRepositoryBranch
         }
     }
 
-    $params = {
+    $params = @{
         'OwnerName' = $OwnerName
         'RepositoryName' = $RepositoryName
         'BranchName' = $TargetBranchName
