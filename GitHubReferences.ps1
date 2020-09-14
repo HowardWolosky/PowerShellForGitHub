@@ -314,9 +314,7 @@ filter New-GitHubReference
         [Parameter(Mandatory)]
         [string] $Sha,
 
-        [string] $AccessToken,
-
-        [switch] $NoStatus
+        [string] $AccessToken
     )
 
     Write-InvocationLog
@@ -394,6 +392,16 @@ filter Set-GithubReference
     .PARAMETER Force
         If not set, the update will only occur if it is a fast-forward update.
         Not specifying this (or setting it to $false) will make sure you're not overwriting work.
+
+    .PARAMETER PassThru
+        Returns the updated Reaction.  By default, this cmdlet does not generate any output.
+        You can use "Set-GitHubConfiguration -DefaultPassThru" to control the default behavior
+        of this switch.
+
+    .PARAMETER PassThru
+        Returns the updated Reaction.  By default, this cmdlet does not generate any output.
+        You can use "Set-GitHubConfiguration -DefaultPassThru" to control the default behavior
+        of this switch.
 
     .PARAMETER AccessToken
         If provided, this will be used as the AccessToken for authentication with the
@@ -493,6 +501,8 @@ filter Set-GithubReference
 
         [switch] $Force,
 
+        [switch] $PassThru,
+
         [string] $AccessToken
     )
 
@@ -525,7 +535,6 @@ filter Set-GithubReference
         'AccessToken' = $AccessToken
         'TelemetryEventName' = $MyInvocation.MyCommand.Name
         'TelemetryProperties' = $telemetryProperties
-        'NoStatus' = (Resolve-ParameterWithDefaultConfigurationValue -Name NoStatus -ConfigValueName DefaultNoStatus)
     }
 
     if (-not $PSCmdlet.ShouldProcess($Sha, "Update Sha for $reference"))
@@ -533,7 +542,12 @@ filter Set-GithubReference
         return
     }
 
-    return (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
+    $result = (Invoke-GHRestMethod @params | Add-GitHubReferenceAdditionalProperties)
+    if (Resolve-ParameterWithDefaultConfigurationValue -Name PassThru -ConfigValueName DefaultPassThru)
+    {
+        return $result
+    }
+
 }
 
 filter Remove-GitHubReference
