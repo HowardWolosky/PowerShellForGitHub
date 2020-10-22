@@ -8,6 +8,17 @@
         <TypeName>GitHub.Repository</TypeName>
       </ViewSelectedBy>
       <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>full_name</Label>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>visibility</Label>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>description</Label>
+          </TableColumnHeader>
+        </TableHeaders>
         <TableRowEntries>
           <TableRowEntry>
             <TableColumnItems>
@@ -15,7 +26,20 @@
                 <PropertyName>full_name</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
-                <PropertyName>visibility</PropertyName>
+                <ScriptBlock>
+                  if ($null -ne $_.visibility)
+                  {
+                    $_.visibility
+                  }
+                  elseif ($_.private)
+                  {
+                    "private"
+                  }
+                  else
+                  {
+                    "public"
+                  }
+                </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <PropertyName>description</PropertyName>
